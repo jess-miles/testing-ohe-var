@@ -11,8 +11,9 @@ from scipy import stats
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.model_selection import train_test_split
 import sklearn.metrics as metrics
+from statsmodels.formula.api import ols
+import statsmodels.api as sm
 
 def assign_cats(df_groups, df_records, ratio_map={}, seed=5):
     """Assigns group labels and multipliers to records to create an
@@ -312,8 +313,8 @@ def explore_data(to_explore, df, target, hist=True, box=True, plot_v_target=True
     return df_meta
 
 def preprocess(df, target, cont_cols, cat_cols=None, cat_drop=None, 
-               standardize=True, ttsplit=True, test_prop=0.25, random_state=5,
-              verbose=False):
+               standardize=True, std_cat=False, ttsplit=True, test_prop=0.25,
+               random_state=5, verbose=False):
     """Takes a dataframe and preprocesses it for linear regression modeling.
     
     Returns X_train, X_test, y_train, y_test dataframes after transformation.
@@ -361,6 +362,9 @@ def preprocess(df, target, cont_cols, cat_cols=None, cat_drop=None,
     specify False. 
     Only X columns will be standardized; y (target) will be returned as-is.
     If performed OHE, the OHE columns will also be standardized.
+
+    std_cat: Default is False. Indicates whether you want to standardize OHE
+    variables along with continuous. Only interpreted if standardize is True.
     
     ttsplit: Default is True. If you do not wish to perform a train test split,
     specify False. In this case all rows of transformed x columns will be
@@ -427,14 +431,35 @@ def preprocess(df, target, cont_cols, cat_cols=None, cat_drop=None,
     if standardize:
         if verbose:
             print(f'Performing standardization...')
+
         scaler = StandardScaler()
-        X_train = pd.DataFrame(scaler.fit_transform(X_train), 
-                               columns=X_train.columns)
-        
-        if X_test is not None:
-            # we're transforming test using the same fit parameters from train
-            X_test = pd.DataFrame(scaler.transform(X_test), 
-                        columns=X_test.columns)
+
+        if std_cat:
+            # if we're standardizing all x columns
+            X_train = pd.DataFrame(scaler.fit_transform(X_train), 
+                                   columns=X_train.columns)
+            if X_test is not None:
+                # we're transforming test using the same fit parameters from train
+                X_test = pd.DataFrame(scaler.transform(X_test), 
+                            columns=X_test.columns)
+        else:
+            # if we're standardizing only continuous columns
+            X_train_cont = pd.DataFrame(scaler.fit_transform(X_train[cont_cols]), 
+                columns=X_train[cont_cols].columns)
+            X_train = pd.concat([X_train_cont, X_train.drop(columns=cont_cols)], 
+                axis=1, copy=False)
+
+            if X_test is not None:
+                # we're transforming test using the same fit parameters from train
+                X_test_cont = pd.DataFrame(scaler.transform(X_test[cont_cols]), 
+                    columns=X_test[cont_cols].columns)
+                X_test = pd.concat([X_test_cont, X_test.drop(columns=cont_cols)], 
+                    axis=1, copy=False)
+            if verbose:
+                print("X_train after standardization:")
+                print(X_train.describe())
+                print("X_test after standardization:")
+                print(X_test.describe())
         
     # return final dfs
     if X_test is not None:
@@ -479,7 +504,7 @@ def rss(y_actuals, y_preds):
     return np.sum((y_actuals - y_preds )**2)
 
 def iterate_models_sklearn(model_dict, df, target, cont_cols2, all_cat_cols, 
-                           avg_cats, random_state=5, verbose=False):
+                           avg_cats, std_cat=False, random_state=5, verbose=False):
     """Uses a dictionary of different model parameters to process and fit a 
     a series of different linear regression models on the same base dataset
     using scikit-learn. Currently tailored to this specific dataset 
@@ -506,6 +531,9 @@ def iterate_models_sklearn(model_dict, df, target, cont_cols2, all_cat_cols,
     
     avg_cats: list of the categories that represent the averages. Should be in
     the format of colname_category, which is how OneHotEncoder will name them.
+
+    std_cat: Default is False. Indicates whether you want to standardize OHE
+    variables along with continuous. Only interpreted if standardize is True.
     
     random_seed: random seed to use for reproducability.
     """
@@ -541,7 +569,7 @@ def iterate_models_sklearn(model_dict, df, target, cont_cols2, all_cat_cols,
         # preprocess according to model parameters
         X_train, X_test, y_train, y_test = preprocess(
             df, target, cont_cols2, cat_cols=cat_cols, cat_drop=cat_drop, 
-            standardize=model['stand'], random_state=random_state, 
+            standardize=model['stand'], std_cat=std_cat, random_state=random_state, 
             verbose=verbose)
         
         if verbose:
