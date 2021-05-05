@@ -14,9 +14,9 @@ My initial goal was to answer the following questions:
 >- Does it matter which column we drop? In other words, will this choice affect the model's results?
 >- If it does matter, how should data scientists select the appropriate column to drop?
 
-My hypothesis was that it could matter, and that in some scenarios it would be more appropriate to drop the column that best represents the average of the target. To test this, I generated a dataset including categorical variables that had average values, and used them to generate target values. I then tested different models on the same data, comparing model coefficients and accuracy when dropping no columns, the first (minimum) column, and the column representing the average.
+My hypothesis was that it could matter, and that in some scenarios it would be more appropriate to drop the column that best represents the average of the target. To test this, I generated a dataset including categorical variables that had average values, and used them to generate target values. I then tested different models on the same data, comparing model coefficients and performance when dropping no columns, the first (minimum) column, and the column representing the average.
 
-My analysis revealed that **while the column dropped does not appear to affect an OLS linear regression model's predictive accuracy, it can have a significant impact on the interpretability of the model's coefficients**. 
+My analysis revealed that **while the column dropped does not appear to affect an OLS linear regression model's performance, it can have a significant impact on the interpretability of the model's coefficients**. 
 
 Data scientists preparing an Ordinary Least Squares multiple linear regression model should carefully consider which columns they drop from each category if their goals for analysis include: 
 - Ranking standardized coefficients to infer relative magnitude or importance of predictors' impacts on the target variable (i.e. "Does square footage or the number of bedrooms add more to a home's sale price?")
@@ -63,7 +63,7 @@ I noted the expected coefficients for each predictor category in original units,
 # Modeling
 My primary question was whether the category column dropped from the model (i.e. used as the model's reference point) affected the results. I wanted to test dropping the first column, since it's the common convention, and as the alternative I wanted to drop a column representing the average category: the category in which mean home Price most closely matched the population mean.
 And there were three different types of results I was interested in:
-1. Predictive accuracy
+1. Performance - R-squared and RMSE for train and test
 2. Interpretability - Accurate ranking of standardized coefficients
 3. Interpretability - Accurate AND intuitive original unit coefficients
 
@@ -76,11 +76,11 @@ I decided to also run models where no categorical columns were dropped just to s
 Ultimately I ended up iterating through 12 models with these different parameters, and then reviewed the results. 
 
 # Model Interpretation and Conclusions
-To compare accuracy, I used a train-test split and generated the R-squared, Residual Sum of Squares (RSS), and Root Mean Squared Error (RMSE) for both train and test.
+To compare performance, I used a train-test split and generated the R-squared, Residual Sum of Squares (RSS), and Root Mean Squared Error (RMSE) for both train and test.
 
 To compare interpretability, I compared the test model coefficients to expected, and reviewed test models differed from watch other.
 
-## Predictive Accuracy
+## Performance
 Being able to accurately predict the target given the independent variables is one of the key measures of success for a linear regression model.
 <img src="./img/model_accuracy.png">
 
@@ -90,7 +90,7 @@ Although other aspects of how the data was processed were varied, such as whethe
 
 The models which were run without the 'day of the week' variable were not perfect, which makes intuitive sense. But there doesn't appear to be any difference between these models where I excluded DOTW; they have the same R-squared and RMSE.
 
-I conclude that varying which  category column is dropped from the model does NOT affect either the amount of variability that the model explains, or the accuracy of the model's predictions.
+I conclude that varying which  category column is dropped from the model does NOT affect the model's performance.
 
 ## Interpretability - Accurately Ranking Standardized Coefficients
 Another way we might want to be able to use our model is to rank the standardized coefficients to compare the magnitude of their effects on the target, or their importance. The goal would be to determine which variables increase or decrease the target to a greater degree. 
@@ -102,11 +102,13 @@ These insights, combined with domain knowledge, could be instrumental for busine
 To measure how accurate the rankings of our models would be, consider the set of heatmaps below. Although each model's heatmap uses its own scale for the color gradient (so we shouldn't try to compare the color shades directly), we would expect the general gradient order of the test models to match the expected order.
 <img src="./img/coefs_stdrank_all.png">
 
-In the Dropped First model, the Zip Codes and y-intercept follow the color order pretty well. But the Condition categories and Square Feet are way too low in the ranking; their colors do not blend into the gradient as they should.
+In both models, Zip Codes look to follow the expected order pretty well. But in the Dropped First mode, the Condition categories and Square Feet don't look right; their colors pop out of the gradient because they have much lower standardized coefficients than we expected.
 
-In the Dropped Average model, the y-intercept is much higher than expected; it obviously sticks out of the color gradient. But the Zip Codes, Condition, and Square Feet look in pretty much the expected order.
+In the Dropped Average model, all of the predictor variables look pretty close.
 
-The Dropped Average model more accurately ranks the coefficients we would care about (Square Feet, Condition, and Zip Code), as opposed to the Dropped First model which ranks the y-intercept fairly accurately, but is quite far off on Condition.
+Note that the y-intercepts of both test models are quite a bit different than expected. In fact, the Dropped Average model's y-intercept is quite different. But it's unlikely we would be concerned with ranking the y-intercept accurately; we would probably be most concerned with ranking the actual predictor variable coefficients.
+
+<img src="./img/std_yints.png" width=50% >
 
 Let's remove the Zip Code categories to zoom in on the others.
 <img src="./img/coefs_stdrank_nozips.png">
@@ -171,7 +173,7 @@ One is not objectively better than the other, but:
 Imagine the difficulty of explaining that although we have a positive number for the impact of Below Average Condition, this is within the context of a baseline house that actually has a negative price… it really doesn't make much sense.
 
 # Summary
-Although the category you choose to drop won't affect the model's prediction accuracy, it can have a significant impact on the interpretability of the model.
+Although the category you choose to drop won't affect the model's performance, it can have a significant impact on the interpretability of the model.
 
 If you plan to use the coefficients in your model to make accurate inferences about:
 - impact on the target per predictor unit,
